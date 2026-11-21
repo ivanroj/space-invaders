@@ -1,0 +1,69 @@
+@startuml architecture
+!include  https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+HIDE_STEREOTYPE()
+skinparam defaultFontName "DejaVu Sans"
+
+title Space Invaders: Go + WebAssembly (C4, components)
+
+Person(player, "Игрок", "Играет в браузере: клавиатура, сенсорный экран, геймпад")
+
+System_Boundary(sys, "Space Invaders") {
+
+  Container_Boundary(browser, "Браузер: страница игры") {
+    Component(ui, "index.html + style.css", "HTML, CSS", "Canvas 320x240, меню, пауза, вход, таблица рекордов, CRT-эффект")
+    Component(app, "app.js", "JavaScript, ES-модуль", "Экраны и цикл кадров requestAnimationFrame")
+    Component(input, "input.js", "JavaScript", "Клавиатура, касания, Gamepad API -> биты нажатий")
+    Component(audio, "audio.js", "Web Audio API", "Синтез звука по событиям движка")
+    Component(apijs, "api.js", "fetch", "Клиент сервера. Access-токен только в памяти, автообновление")
+    Component(bridge, "wasm.js (мост)", "JavaScript", "Загружает main.wasm, владеет буферами пикселей и состояния, класс Engine")
+    Component(goexec, "wasm_exec.js", "из дистрибутива Go", "Среда выполнения Go в браузере")
+  }
+
+  Container_Boundary(wasm, "main.wasm: Go, GOOS=js GOARCH=wasm") {
+    Component(entry, "cmd/wasm", "Go, syscall/js", "Экспорт SpaceInvaders: bind, frame, start, watch, demo, replay. Фиксированный шаг 60 Гц")
+    Component(render, "internal/render", "Go", "Программный рендерер в RGBA: спрайты, шрифт, частицы, HUD")
+  }
+
+  Container_Boundary(shared, "Общий код Go: один и тот же в браузере и на сервере") {
+    Component(sim, "internal/sim", "Go, без float и часов", "Детерминированное ядро: строй, пули, коллизии, бункеры, НЛО, бонусы, босс, события")
+    Component(replay, "internal/replay", "Go", "Запись нажатий (RLE) и воспроизведение")
+  }
+
+  Container_Boundary(server, "Сервер: Go, net/http") {
+    Component(http, "http.go", "Go", "Маршруты, CSP, gzip, лимит размера, лимит частоты, раздача web/")
+    Component(auth, "auth.go", "JWT HS256, bcrypt", "Регистрация, вход, refresh, выход. Токены access / refresh / game")
+    Component(scores, "scores.go", "Go", "Билет на игру с зерном. Переигрывает запись и сам считает счёт")
+    Component(store, "store.go", "Go", "Пользователи, лучшие игры, использованные билеты")
+  }
+
+  ContainerDb(db, "data/store.json", "JSON-файл", "Хеши паролей, рекорды, записи игр")
+}
+
+Rel(player, ui, "Играет, входит, смотрит записи")
+Rel(ui, app, "Клики, DOM")
+Rel(app, input, "read(): биты нажатий")
+Rel(app, audio, "События -> звук")
+Rel(app, bridge, "frame(dt, input) раз в кадр")
+Rel(app, apijs, "Вход, билет, отправка записи")
+Rel(bridge, goexec, "new Go(), go.run()")
+Rel(bridge, entry, "Вызовы SpaceInvaders.*", "js.FuncOf")
+Rel(entry, bridge, "Пиксели и состояние", "js.CopyBytesToJS")
+Rel(entry, sim, "Step(input)")
+Rel(entry, render, "Handle(events), Draw(game)")
+Rel(entry, replay, "Запись / чтение нажатий")
+Rel(render, sim, "Читает состояние")
+Rel(replay, sim, "Run(seed, data)")
+
+Rel(apijs, http, "REST, JSON", "HTTPS, Bearer JWT, HttpOnly cookie")
+Rel(http, auth, "/api/auth/*, /api/me")
+Rel(http, scores, "/api/games, /api/scores, /api/leaderboard, /api/replays")
+Rel(scores, auth, "Проверка токена и билета")
+Rel(scores, replay, "Переигрывает запись")
+Rel(auth, store, "Пользователи, версия токенов")
+Rel(scores, store, "Рекорды, билеты")
+Rel(store, db, "Атомарная запись")
+
+@enduml

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05060f">
+  <meta name="description" content="Космические захватчики: игровой движок на Go, скомпилированный в WebAssembly.">
+  <title>Space Invaders · Go + WebAssembly</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <!-- wasm_exec.js ships with Go and defines the global Go class that gives
+       the Wasm module its imports. build.sh copies it from the toolchain. -->
+  <script src="wasm_exec.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img src="favicon.svg" alt="" width="22" height="22">
+      <span>SPACE INVADERS</span>
+      <small>Go → WebAssembly</small>
+    </div>
+    <nav class="tools" aria-label="Настройки">
+      <button class="chip" id="btn-sound" type="button" aria-pressed="true" title="Звук (M)">Звук</button>
+      <button class="chip" id="btn-crt" type="button" aria-pressed="true" title="Эффект ЭЛТ-экрана">CRT</button>
+      <button class="chip" id="btn-full" type="button" title="Во весь экран (F)">Во весь экран</button>
+      <span class="account" id="account">
+        <span class="account-name" id="account-name" hidden></span>
+        <button class="chip accent" id="btn-login" type="button">Войти</button>
+        <button class="chip" id="btn-logout" type="button" hidden>Выйти</button>
+      </span>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <aside class="panel" id="panel-info">
+      <h2>Управление</h2>
+      <dl class="keys">
+        <dt><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd></dt><dd>движение</dd>
+        <dt><kbd>Пробел</kbd></dt><dd>огонь</dd>
+        <dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>пауза</dd>
+        <dt><kbd>M</kbd> · <kbd>F</kbd></dt><dd>звук · экран</dd>
+      </dl>
+      <p class="note">Геймпад и сенсорный экран тоже работают.</p>
+
+      <h2>Бонусы</h2>
+      <ul class="bonuses">
+        <li><b class="pow pow-r">R</b> скорострельность</li>
+        <li><b class="pow pow-t">T</b> тройной выстрел</li>
+        <li><b class="pow pow-s">S</b> щит</li>
+        <li><b class="pow pow-z">Z</b> замедление врагов</li>
+        <li><b class="pow pow-l">+</b> жизнь</li>
+      </ul>
+      <p class="note">Быстрая серия попаданий подряд даёт множитель очков до ×5. Каждая пятая волна — босс.</p>
+
+      <h2>Под капотом</h2>
+      <dl class="stats" id="stats">
+        <dt>Кадров/с</dt><dd id="st-fps">–</dd>
+        <dt>Go: кадр</dt><dd id="st-go">–</dd>
+        <dt>main.wasm</dt><dd id="st-wasm">–</dd>
+        <dt>Тик</dt><dd id="st-tick">–</dd>
+        <dt>Реплей</dt><dd id="st-replay">–</dd>
+        <dt>JWT</dt><dd id="st-jwt">нет</dd>
+      </dl>
+      <pre class="jwt" id="st-claims" hidden></pre>
+    </aside>
+
+    <section class="stage" id="stage">
+      <div class="screen crt" id="screen">
+        <canvas id="canvas" width="320" height="240" aria-label="Игровое поле"></canvas>
+
+        <div class="overlay" id="view-loading">
+          <p class="title small">SPACE INVADERS</p>
+          <div class="loader" role="progressbar" aria-label="Загрузка"><i></i></div>
+          <p class="hint" id="load-status">Загрузка main.wasm…</p>
+        </div>
+
+        <div class="overlay" id="view-error" hidden>
+          <p class="title small alert">ОШИБКА</p>
+          <p class="hint" id="error-text"></p>
+        </div>
+
+        <div class="overlay menu" id="view-menu" hidden>
+          <h1 class="title">SPACE<br>INVADERS</h1>
+          <p class="tagline">движок на Go · WebAssembly</p>
+          <div class="actions">
+            <button class="btn primary" id="btn-play" type="button">ИГРАТЬ</button>
+          </div>
+          <p class="hint" id="menu-hint"></p>
+        </div>
+
+        <div class="overlay over" id="view-over" hidden>
+          <p class="title small alert">GAME OVER</p>
+          <p class="score" id="over-score">0</p>
+          <dl class="result">
+            <dt>Волна</dt><dd id="over-wave">1</dd>
+            <dt>Точность</dt><dd id="over-acc">0%</dd>
+            <dt>Серия</dt><dd id="over-combo">0</dd>
+          </dl>
+          <p class="verdict" id="over-verdict" role="status"></p>
+          <div class="actions">
+            <button class="btn primary" id="btn-again" type="button">ЕЩЁ РАЗ</button>
+            <button class="btn" id="btn-menu" type="button">МЕНЮ</button>
+          </div>
+        </div>
+
+        <div class="overlay pause" id="view-pause" hidden>
+          <div class="actions">
+            <button class="btn primary" id="btn-resume" type="button">ПРОДОЛЖИТЬ</button>
+            <button class="btn" id="btn-quit" type="button">В МЕНЮ</button>
+          </div>
+        </div>
+
+        <div class="banner" id="watch-banner" hidden>
+          <span id="watch-text"></span>
+          <span class="banner-keys"><kbd>1</kbd><kbd>2</kbd><kbd>4</kbd> скорость · <kbd>Esc</kbd> выход</span>
+        </div>
+      </div>
+
+      <div class="touch" id="touch" aria-hidden="true">
+        <div class="touch-move">
+          <button type="button" data-input="left">◀</button>
+          <button type="button" data-input="right">▶</button>
+        </div>
+        <button type="button" class="touch-pause" id="touch-pause">II</button>
+        <button type="button" class="touch-fire" data-input="fire">ОГОНЬ</button>
+      </div>
+    </section>
+
+    <aside class="panel" id="panel-board">
+      <h2>Таблица рекордов</h2>
+      <ol class="board" id="board"></ol>
+      <p class="note" id="board-note">Загрузка…</p>
+      <p class="note">Счёт присылает не браузер: сервер сам переигрывает запись нажатий на том же движке. Нажмите ▶, чтобы посмотреть запись.</p>
+    </aside>
+  </main>
+
+  <dialog id="auth" aria-labelledby="auth-title">
+    <form id="auth-form" method="dialog" novalidate>
+      <h2 id="auth-title">Вход</h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-login" aria-selected="true">Вход</button>
+        <button type="button" role="tab" id="tab-register" aria-selected="false">Регистрация</button>
+      </div>
+      <label>Имя
+        <input id="auth-name" name="name" autocomplete="username" minlength="3" maxlength="16" required spellcheck="false">
+      </label>
+      <label>Пароль
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="72" required>
+      </label>
+      <p class="form-hint" id="auth-hint">Имя: 3–16 букв, цифр, «_» или «-». Пароль: от 8 символов.</p>
+      <p class="form-error" id="auth-error" role="alert" hidden></p>
+      <div class="actions">
+        <button class="btn primary" id="auth-submit" type="submit">ВОЙТИ</button>
+        <button class="btn" id="auth-cancel" type="button">ОТМЕНА</button>
+      </div>
+    </form>
+  </dialog>
+
+  <noscript><p class="noscript">Игре нужен JavaScript: он загружает WebAssembly-модуль.</p></noscript>
+</body>
+</html>
