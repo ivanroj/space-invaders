@@ -71,6 +71,7 @@ function layout() {
 
 function setScene(next) {
   scene = next;
+  document.body.dataset.scene = next;
   paused = false;
   overSince = 0;
   clearTimeout(overGuard);
