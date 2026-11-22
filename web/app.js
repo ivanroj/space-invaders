@@ -180,7 +180,7 @@ function gameOver() {
   const { score, wave, shots, hits, maxCombo } = engine;
   $('over-score').textContent = score.toLocaleString('ru-RU');
   $('over-wave').textContent = wave;
-  $('over-acc').textContent = `${shots ? Math.min(100, Math.round((hits * 100) / shots)) : 0}%`;
+  $('over-acc').textContent = `${shots ? Math.min(100, Math.floor((hits * 100) / shots)) : 0}%`;
   $('over-combo').textContent = maxCombo;
   if (score > localBest()) localStorage.setItem(BEST_KEY, String(score));
   syncHiScore();
