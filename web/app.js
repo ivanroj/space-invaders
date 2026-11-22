@@ -376,6 +376,12 @@ function frame(now) {
   perf.frames++;
 
   ctx2d.putImageData(engine.image, 0, 0);
+  if (scene === 'over') {
+    // The frame still carries the engine's own GAME OVER lettering; dim it so
+    // it does not show through the overlay. A fill is cheaper than CSS opacity.
+    ctx2d.fillStyle = 'rgba(5, 6, 15, .88)';
+    ctx2d.fillRect(0, 0, engine.width, engine.height);
+  }
 
   const live = scene === 'play' || scene === 'watch';
   if (live) engine.forEachEvent((kind, a, x) => sound.play(kind, a, x, engine.width));

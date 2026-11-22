@@ -282,8 +282,6 @@ kbd {
 
 .overlay.menu { background: radial-gradient(ellipse at 50% 40%, rgba(5, 6, 15, .82) 0%, rgba(5, 6, 15, .45) 70%); }
 .overlay.over { background: rgba(5, 6, 15, .94); }
-/* The canvas keeps its own GAME OVER lettering; fade it out under the overlay. */
-body[data-scene="over"] #canvas { opacity: .12; }
 .overlay.pause { justify-content: flex-end; padding-bottom: calc(70 * var(--px)); }
 #view-loading, #view-error { background: var(--bg); }
 
