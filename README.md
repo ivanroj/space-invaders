@@ -4,6 +4,7 @@
 
 **Классическая аркада, в которой весь игровой движок написан на Go и работает в браузере как WebAssembly-модуль.**
 
+[![CI](https://github.com/ivanroj/space-invaders/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanroj/space-invaders/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)
 ![WebAssembly](https://img.shields.io/badge/WebAssembly-js%2Fwasm-654FF0?logo=webassembly&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-HS256-000000?logo=jsonwebtokens&logoColor=white)
