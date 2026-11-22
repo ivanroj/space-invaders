@@ -113,7 +113,14 @@
 
         <div class="banner" id="watch-banner" hidden>
           <span id="watch-text"></span>
-          <span class="banner-keys"><kbd>1</kbd><kbd>2</kbd><kbd>4</kbd> скорость · <kbd>Esc</kbd> выход</span>
+          <span class="banner-keys">
+            <span class="speeds" role="group" aria-label="Скорость записи">
+              <button type="button" class="speed" data-speed="1" title="Клавиша 1">×1</button>
+              <button type="button" class="speed" data-speed="2" title="Клавиша 2">×2</button>
+              <button type="button" class="speed" data-speed="4" title="Клавиша 4">×4</button>
+            </span>
+            <span><kbd>Esc</kbd> выход</span>
+          </span>
         </div>
       </div>
 

@@ -18,6 +18,7 @@ const BEST_KEY = 'si.best';
 const CRT_KEY = 'si.crt';
 const OVER_DELAY_MS = 1400; // let the last explosion play out
 const WATCH_END_MS = 2500;
+const OVER_GUARD_MS = 700; // game-over buttons ignore input this long
 
 const api = new Api();
 /** @type {import('./wasm.js').Engine} */
@@ -34,6 +35,7 @@ let starting = false;
 let ticket = null; // the server's ticket for the game being played
 let pending = null; // a finished game the server has not accepted yet
 let overSince = 0;
+let overGuard = 0;
 let watchSpeed = 1;
 let boardTop = 0;
 let crt = localStorage.getItem(CRT_KEY) !== '0';
@@ -71,6 +73,8 @@ function setScene(next) {
   scene = next;
   paused = false;
   overSince = 0;
+  clearTimeout(overGuard);
+  for (const id of ['btn-again', 'btn-menu']) $(id).disabled = false;
   input.capture = next === 'play';
   input.release();
   $('watch-banner').hidden = next !== 'watch';
@@ -119,11 +123,18 @@ async function watch(entry) {
     sound.unlock();
     const rec = await api.replay(entry.userId);
     engine.watch(rec.seed, rec.replay);
-    watchSpeed = 1;
+    setWatchSpeed(1);
     $('watch-text').textContent = `Запись: ${rec.name} · ${rec.score}`;
     setScene('watch');
   } catch (err) {
     $('board-note').textContent = err.message;
+  }
+}
+
+function setWatchSpeed(speed) {
+  watchSpeed = speed;
+  for (const btn of document.querySelectorAll('.speed')) {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.speed) === speed));
   }
 }
 
@@ -138,7 +149,7 @@ function togglePause() {
 function onAction(action) {
   switch (action) {
     case 'start':
-      if (scene === 'menu' || scene === 'over') startGame();
+      if (scene === 'menu' || (scene === 'over' && !$('btn-again').disabled)) startGame();
       else if (paused) togglePause();
       break;
     case 'pause':
@@ -157,7 +168,7 @@ function onAction(action) {
     case 'speed1':
     case 'speed2':
     case 'speed4':
-      if (scene === 'watch') watchSpeed = Number(action.slice(-1));
+      if (scene === 'watch') setWatchSpeed(Number(action.slice(-1)));
       break;
   }
 }
@@ -174,7 +185,14 @@ function gameOver() {
   syncHiScore();
 
   setScene('over');
-  $('btn-again').focus({ preventScroll: true });
+  // The player is usually still hammering fire when the last life goes, and
+  // Space clicks a focused button. Keep the buttons inert for a moment.
+  const buttons = [$('btn-again'), $('btn-menu')];
+  for (const btn of buttons) btn.disabled = true;
+  overGuard = setTimeout(() => {
+    for (const btn of buttons) btn.disabled = false;
+    if (scene === 'over') $('btn-again').focus({ preventScroll: true });
+  }, OVER_GUARD_MS);
 
   if (ticket) {
     pending = { ticket, replay: engine.replay() };
@@ -422,6 +440,17 @@ async function boot() {
   $('btn-play').addEventListener('click', startGame);
   $('btn-again').addEventListener('click', startGame);
   $('btn-menu').addEventListener('click', toMenu);
+  for (const btn of document.querySelectorAll('.speed')) {
+    btn.addEventListener('click', () => setWatchSpeed(Number(btn.dataset.speed)));
+  }
+  // Space is the fire key, so it never activates an overlay button; Enter does.
+  for (const btn of document.querySelectorAll('.overlay .btn')) {
+    for (const type of ['keydown', 'keyup']) {
+      btn.addEventListener(type, (e) => {
+        if (e.code === 'Space') e.preventDefault();
+      });
+    }
+  }
   $('btn-resume').addEventListener('click', togglePause);
   $('btn-quit').addEventListener('click', toMenu);
   $('btn-sound').addEventListener('click', () => setMuted(!sound.muted));

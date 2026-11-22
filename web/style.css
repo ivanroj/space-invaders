@@ -281,7 +281,12 @@ kbd {
 }
 
 .overlay.menu { background: radial-gradient(ellipse at 50% 40%, rgba(5, 6, 15, .82) 0%, rgba(5, 6, 15, .45) 70%); }
-.overlay.over { background: rgba(5, 6, 15, .94); }
+.overlay.over {
+  background: rgba(5, 6, 15, .9);
+  /* The canvas keeps its own GAME OVER lettering; blur it into a glow. */
+  -webkit-backdrop-filter: blur(calc(5 * var(--px))) brightness(.55);
+  backdrop-filter: blur(calc(5 * var(--px))) brightness(.55);
+}
 .overlay.pause { justify-content: flex-end; padding-bottom: calc(70 * var(--px)); }
 #view-loading, #view-error { background: var(--bg); }
 
@@ -383,7 +388,18 @@ kbd {
   z-index: 3;
 }
 
-.banner-keys { color: var(--dim); }
+.banner-keys { display: flex; align-items: center; gap: 1em; color: var(--dim); }
+.speeds { display: inline-flex; gap: .3em; }
+.speed {
+  padding: 0 .5em;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #11162b;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+}
+.speed[aria-pressed="true"] { border-color: var(--cyan); background: var(--cyan); color: #05060f; }
 
 /* ---------- touch controls ---------- */
 
