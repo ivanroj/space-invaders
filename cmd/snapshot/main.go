@@ -3,9 +3,16 @@
 // which makes it handy for checking the picture without opening a browser.
 //
 //	go run ./cmd/snapshot -seed 7 -ticks 600,2400 -out shots
+//
+// With -stream it writes raw RGBA frames to standard output instead, which
+// ffmpeg turns into a video or a GIF:
+//
+//	go run ./cmd/snapshot -seed 2 -stream 240:840 |
+//	  ffmpeg -f rawvideo -pixel_format rgba -video_size 320x240 -framerate 60 -i - demo.mp4
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"image"
@@ -25,7 +32,15 @@ func main() {
 	ticks := flag.String("ticks", "300,1200,3000", "comma-separated ticks to capture")
 	out := flag.String("out", "shots", "output directory")
 	zoom := flag.Int("zoom", 3, "integer upscale factor")
+	stream := flag.String("stream", "", "FROM:TO ticks to write to stdout as raw RGBA frames")
 	flag.Parse()
+
+	if *stream != "" {
+		if err := streamFrames(*seed, *stream); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	want := map[uint32]bool{}
 	var last uint32
@@ -56,6 +71,28 @@ func main() {
 			fmt.Printf("%s  score=%d wave=%d lives=%d\n", name, g.Score, g.Wave, g.Lives)
 		}
 	}
+}
+
+func streamFrames(seed uint64, span string) error {
+	var from, to uint32
+	if _, err := fmt.Sscanf(span, "%d:%d", &from, &to); err != nil || from >= to {
+		return fmt.Errorf("bad -stream %q, want FROM:TO", span)
+	}
+	out := bufio.NewWriter(os.Stdout)
+	g := sim.New(seed)
+	r := render.New()
+	for g.Tick < to && !g.Over() {
+		g.Step(sim.Bot(g))
+		r.Handle(g.Events)
+		r.Tick()
+		if g.Tick > from {
+			r.Draw(g, render.View{})
+			if _, err := out.Write(r.Pix); err != nil {
+				return err
+			}
+		}
+	}
+	return out.Flush()
 }
 
 func save(name string, pix []byte, zoom int) error {

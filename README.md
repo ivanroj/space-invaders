@@ -1,12 +1,46 @@
+<div align="center">
+
 # Space Invaders: Go + WebAssembly
 
-Классическая аркада, в которой весь игровой движок написан на Go и работает в
-браузере как WebAssembly-модуль. JavaScript остаётся тонким мостом: он передаёт
-в Go нажатые клавиши и показывает на `<canvas>` кадр, который нарисовал Go.
-Таблица рекордов защищена JWT, а счёт сервер считает сам, переигрывая запись
-нажатий на том же движке.
+**Классическая аркада, в которой весь игровой движок написан на Go и работает в браузере как WebAssembly-модуль.**
 
-![Архитектура](docs/architecture.png)
+![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)
+![WebAssembly](https://img.shields.io/badge/WebAssembly-js%2Fwasm-654FF0?logo=webassembly&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-HS256-000000?logo=jsonwebtokens&logoColor=white)
+![Зависимости фронтенда](https://img.shields.io/badge/npm--зависимости-0-2ea44f)
+![Лицензия](https://img.shields.io/badge/лицензия-MIT-blue)
+
+![Игровой процесс](docs/media/demo.gif)
+
+</div>
+
+JavaScript остаётся тонким мостом: он передаёт в Go нажатые клавиши и показывает
+на `<canvas>` кадр, который нарисовал Go. Таблица рекордов защищена JWT, а счёт
+сервер считает сам, переигрывая запись нажатий на том же движке.
+
+| Меню и демо-режим | Игра |
+|---|---|
+| ![Меню](docs/media/menu.png) | ![Игра](docs/media/play.png) |
+| **Счёт проверен сервером** | **Просмотр записи из таблицы** |
+| ![Проверка счёта](docs/media/verified.png) | ![Запись](docs/media/replay.png) |
+
+<details>
+<summary>Босс пятой волны</summary>
+
+![Босс](docs/media/boss.gif)
+
+</details>
+
+## Содержание
+
+- [Быстрый старт](#быстрый-старт)
+- [Управление](#управление)
+- [Что есть в игре](#что-есть-в-игре)
+- [Структура проекта](#структура-проекта)
+- [Как это устроено](#как-это-устроено)
+- [API сервера](#api-сервера)
+- [Тесты](#тесты)
+- [Учебный маршрут с заданиями](docs/LEARNING.md)
 
 ## Быстрый старт
 
@@ -28,6 +62,16 @@ go run ./cmd/snapshot -seed 7 -ticks 600,2400 -out shots   # кадры в PNG �
 
 Без `JWT_SECRET` сервер создаёт случайный ключ на время работы и предупреждает,
 что после перезапуска все сессии станут недействительны.
+
+### Docker
+
+```bash
+docker build -t space-invaders .
+docker run --rm -p 8080:8080 -e JWT_SECRET=$(openssl rand -hex 32) -v si-data:/data space-invaders
+```
+
+Образ собирается в два этапа: Go компилирует `main.wasm` и сервер, в итоговый
+образ на базе distroless попадают только бинарник и папка `web/`.
 
 ## Управление
 
@@ -81,6 +125,8 @@ space-invaders/
 ```
 
 ## Как это устроено
+
+![Архитектура](docs/architecture.png)
 
 ### 1. Компиляция Go в WebAssembly
 
